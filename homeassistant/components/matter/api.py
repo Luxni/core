@@ -40,6 +40,8 @@ def async_register_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_interview_node)
     websocket_api.async_register_command(hass, websocket_get_node_binding)
     websocket_api.async_register_command(hass, websocket_set_node_binding)
+    websocket_api.async_register_command(hass, websocket_add_node_to_acl)
+    websocket_api.async_register_command(hass, websocket_delete_node_at_acl)
 
 
 def async_get_node(
@@ -291,6 +293,102 @@ async def websocket_set_node_binding(
         node_id=node.node_id,
         attribute_path=attribute_path,
         value=msg["bindings"],
+    )
+    connection.send_result(msg[ID], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required(TYPE): "matter/add_node_to_acl",
+        vol.Required(DEVICE_ID): str,
+        vol.Required("node"): int,
+    }
+)
+@websocket_api.async_response
+@async_handle_failed_command
+@async_get_matter_adapter
+@async_get_node
+async def websocket_add_node_to_acl(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+    matter: MatterAdapter,
+    node: MatterNode,
+) -> None:
+    """Set node to acl subjects."""
+
+    # read acl
+    local_fabric_id = matter.matter_client.server_info.fabric_id
+    attribute_path = "0/31/0"
+    result = await matter.matter_client.read_attribute(
+        node_id=node.node_id,
+        attribute_path=attribute_path,
+    )
+    acl = result[attribute_path]
+
+    # find current fabric acl
+    ac_entry = [ac for ac in acl if ac["254"] == local_fabric_id][0]
+    ac_entry["1"] = 3
+    ac_entry["2"] = 2
+
+    if "3" not in ac_entry:
+        ac_entry["3"] = [msg["node"]]
+    elif msg["node"] not in ac_entry["3"]:
+        ac_entry["3"].append(msg["node"])
+    else:
+        connection.send_result(msg[ID], result)
+        return
+
+    if "4" not in ac_entry:
+        ac_entry["4"] = None
+
+    # rewrite acl
+    result = await matter.matter_client.write_attribute(
+        node_id=node.node_id, attribute_path=attribute_path, value=acl
+    )
+    connection.send_result(msg[ID], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required(TYPE): "matter/delete_node_at_acl",
+        vol.Required(DEVICE_ID): str,
+        vol.Required("node"): int,
+    }
+)
+@websocket_api.async_response
+@async_handle_failed_command
+@async_get_matter_adapter
+@async_get_node
+async def websocket_delete_node_at_acl(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+    matter: MatterAdapter,
+    node: MatterNode,
+) -> None:
+    """Delete node at acl subjects."""
+    # read acl
+    attribute_path = "0/31/0"
+    result = await matter.matter_client.read_attribute(
+        node_id=node.node_id,
+        attribute_path=attribute_path,
+    )
+    acl = result[attribute_path]
+
+    # find current fabric acl
+    ac_entries = [ac for ac in acl if ac.get("254") and ac.get("3")]
+    for ac_entry in ac_entries:
+        if "3" in ac_entry:
+            subjects = ac_entry["3"]
+            if msg["node"] in subjects:
+                subjects.remove(msg["node"])
+
+    # clear acl if acl subjects is none
+    acl = [item for item in acl if item.get("3") and len(item["3"])]
+    # rewrite acl
+    result = await matter.matter_client.write_attribute(
+        node_id=node.node_id, attribute_path=attribute_path, value=acl
     )
     connection.send_result(msg[ID], result)
 
