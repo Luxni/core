@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pyatmo
 import pytest
-from syrupy import SnapshotAssertion
+from syrupy.assertion import SnapshotAssertion
 
 from homeassistant.components import camera
 from homeassistant.components.camera import CameraState
@@ -408,7 +408,7 @@ async def test_camera_reconnect_webhook(
         """Fake error during requesting backend data."""
         nonlocal fake_post_hits
         fake_post_hits += 1
-        return await fake_post_request(*args, **kwargs)
+        return await fake_post_request(hass, *args, **kwargs)
 
     with (
         patch(
@@ -416,7 +416,7 @@ async def test_camera_reconnect_webhook(
         ) as mock_auth,
         patch("homeassistant.components.netatmo.data_handler.PLATFORMS", ["camera"]),
         patch(
-            "homeassistant.helpers.config_entry_oauth2_flow.async_get_config_entry_implementation",
+            "homeassistant.components.netatmo.async_get_config_entry_implementation",
         ),
         patch(
             "homeassistant.components.netatmo.webhook_generate_url",
@@ -507,7 +507,7 @@ async def test_setup_component_no_devices(
         """Fake error during requesting backend data."""
         nonlocal fake_post_hits
         fake_post_hits += 1
-        return await fake_post_request(*args, **kwargs)
+        return await fake_post_request(hass, *args, **kwargs)
 
     with (
         patch(
@@ -515,7 +515,7 @@ async def test_setup_component_no_devices(
         ) as mock_auth,
         patch("homeassistant.components.netatmo.data_handler.PLATFORMS", ["camera"]),
         patch(
-            "homeassistant.helpers.config_entry_oauth2_flow.async_get_config_entry_implementation",
+            "homeassistant.components.netatmo.async_get_config_entry_implementation",
         ),
         patch(
             "homeassistant.components.netatmo.webhook_generate_url",
@@ -550,7 +550,7 @@ async def test_camera_image_raises_exception(
         if "snapshot_720.jpg" in endpoint:
             raise pyatmo.ApiError
 
-        return await fake_post_request(*args, **kwargs)
+        return await fake_post_request(hass, *args, **kwargs)
 
     with (
         patch(
@@ -558,7 +558,7 @@ async def test_camera_image_raises_exception(
         ) as mock_auth,
         patch("homeassistant.components.netatmo.data_handler.PLATFORMS", ["camera"]),
         patch(
-            "homeassistant.helpers.config_entry_oauth2_flow.async_get_config_entry_implementation",
+            "homeassistant.components.netatmo.async_get_config_entry_implementation",
         ),
         patch(
             "homeassistant.components.netatmo.webhook_generate_url",

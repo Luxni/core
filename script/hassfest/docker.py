@@ -35,8 +35,6 @@ ARG BUILD_ARCH
 RUN \
     case "${{BUILD_ARCH}}" in \
         "aarch64") go2rtc_suffix='arm64' ;; \
-        "armhf") go2rtc_suffix='armv6' ;; \
-        "armv7") go2rtc_suffix='arm' ;; \
         *) go2rtc_suffix=${{BUILD_ARCH}} ;; \
     esac \
     && curl -L https://github.com/AlexxIT/go2rtc/releases/download/v{go2rtc}/go2rtc_linux_${{go2rtc_suffix}} --output /bin/go2rtc \
@@ -103,7 +101,10 @@ RUN --mount=from=ghcr.io/astral-sh/uv:{uv},source=/uv,target=/bin/uv \
         --no-cache \
         -c /usr/src/homeassistant/homeassistant/package_constraints.txt \
         -r /usr/src/homeassistant/requirements.txt \
-        stdlib-list==0.10.0 pipdeptree=={pipdeptree} tqdm=={tqdm} ruff=={ruff} \
+        stdlib-list==0.10.0 \
+        pipdeptree=={pipdeptree} \
+        tqdm=={tqdm} \
+        ruff=={ruff} \
         {required_components_packages}
 
 LABEL "name"="hassfest"
@@ -169,7 +170,7 @@ def _generate_hassfest_dockerimage(
     return File(
         _HASSFEST_TEMPLATE.format(
             timeout=timeout,
-            required_components_packages=" ".join(sorted(packages)),
+            required_components_packages=" \\\n        ".join(sorted(packages)),
             **package_versions,
         ),
         config.root / "script/hassfest/docker/Dockerfile",
